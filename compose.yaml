@@ -1,0 +1,38 @@
+name: movies-server
+
+services:
+  movies:
+    image: nginx:stable-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a
+    user: "${MOVIES_UID:-501}:${MOVIES_GID:-20}"
+    entrypoint: ["nginx"]
+    command: ["-g", "daemon off;"]
+    restart: "no"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    ports:
+      - "${BIND_IP:-127.0.0.1}:${PORT:-8765}:8080"
+    volumes:
+      - type: bind
+        source: ${MOVIES_DIR:-${HOME}/Movies}
+        target: /movies
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nginx.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 3s
+      start_period: 3s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
